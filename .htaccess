@@ -1,0 +1,18 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Rediriger les anciennes URL vers les nouvelles
+    # Les règles suivantes étaient utilisées pour une ancienne structure (citizen/...).
+    # Elles causent des redirections indésirables vers /citizen/... ; commentées pour utiliser la structure actuelle /pages/.
+    # RewriteRule ^pages/dashboard\.php$ /citizen/dashboard.php [R=301,L]
+    # RewriteRule ^pages/mes_demandes\.php$ /citizen/demande.php?action=liste [R=301,L]
+    # RewriteRule ^pages/demande_cni\.php$ /citizen/demande.php?action=cni [R=301,L]
+    # RewriteRule ^pages/demande_certificat\.php$ /citizen/demande.php?action=certificat [R=301,L]
+    # RewriteRule ^pages/details_demande\.php$ /citizen/demande.php?action=details&id=%{QUERY_STRING} [R=301,L]
+    
+    # URL propres pour le citoyen
+    RewriteRule ^citizen/demandes$ /citizen/demande.php?action=liste [L]
+    RewriteRule ^citizen/demande/cni$ /citizen/demande.php?action=cni [L]
+    RewriteRule ^citizen/demande/certificat$ /citizen/demande.php?action=certificat [L]
+    RewriteRule ^citizen/demande/([0-9]+)$ /citizen/demande.php?action=details&id=$1 [L]
+</IfModule>

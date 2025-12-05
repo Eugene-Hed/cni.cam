@@ -1,0 +1,226 @@
+<?php
+session_start();
+include('../includes/config.php');
+
+// Vérification de l'authentification
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 3) {
+    header('Location: /pages/login.php');
+    exit();
+}
+
+// Vérification de l'ID de la demande
+$demandeId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if (!$demandeId) {
+    header('Location: demandes_cni.php');
+    exit();
+}
+
+// Vérifier que la demande est approuvée et que la signature du citoyen est enregistrée
+$query = "SELECT d.*, dc.Nom, dc.Prenom 
+          FROM demandes d
+          JOIN demande_cni_details dc ON d.DemandeID = dc.DemandeID
+          WHERE d.DemandeID = :id 
+          AND d.Statut = 'Approuvee' 
+          AND d.SignatureEnregistree = 1 
+          AND (d.SignatureOfficierEnregistree = 0 OR d.SignatureOfficierEnregistree IS NULL)";
+$stmt = $db->prepare($query);
+$stmt->execute(['id' => $demandeId]);
+$demande = $stmt->fetch();
+
+if (!$demande) {
+    $_SESSION['error_message'] = "La demande n'existe pas, n'est pas approuvée, ou les signatures sont déjà enregistrées.";
+    header('Location: demandes_cni.php');
+    exit();
+}
+
+// Traitement de l'enregistrement de la signature
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['signature'])) {
+    $signatureData = $_POST['signature'];
+    
+    try {
+        $db->beginTransaction();
+
+        // Créer le répertoire de signatures si nécessaire
+        $uploadsDir = '../uploads/signatures_officier';
+        if (!file_exists($uploadsDir)) {
+            mkdir($uploadsDir, 0777, true);
+        }
+
+        // Extraire les données de l'image base64
+        $signatureData = str_replace('data:image/png;base64,', '', $signatureData);
+        $signatureData = str_replace(' ', '+', $signatureData);
+        $signatureImage = base64_decode($signatureData);
+
+        // Générer un nom de fichier unique
+        $fileName = 'signature_officier_' . $demandeId . '_' . time() . '.png';
+        $filePath = $uploadsDir . '/' . $fileName;
+
+        // Enregistrer l'image
+        file_put_contents($filePath, $signatureImage);
+
+        // Mettre à jour le statut de la signature dans la demande
+        $query = "UPDATE demandes SET 
+                  SignatureOfficierEnregistree = 1, 
+                  CheminSignatureOfficier = :cheminSignature, 
+                  DateSignatureOfficier = NOW() 
+                  WHERE DemandeID = :id";
+        $stmt = $db->prepare($query);
+        $stmt->execute([
+            'id' => $demandeId,
+            'cheminSignature' => $filePath
+        ]);
+
+        // Ajouter dans l'historique
+        $query = "INSERT INTO historique_demandes 
+                  (DemandeID, AncienStatut, NouveauStatut, Commentaire, ModifiePar, DateModification) 
+                  VALUES (:demandeId, 'Approuvee', 'Approuvee', 'Signature de l\'officier enregistrée', :userId, NOW())";
+        $stmt = $db->prepare($query);
+        $stmt->execute([
+            'demandeId' => $demandeId,
+            'userId' => $_SESSION['user_id']
+        ]);
+
+        $db->commit();
+        
+        $_SESSION['success_message'] = "Votre signature a été enregistrée avec succès. Vous pouvez maintenant générer la CNI.";
+        header('Location: traiter_demande.php?id=' . $demandeId);
+        exit();
+
+    } catch (Exception $e) {
+        $db->rollBack();
+        $error = "Erreur lors de l'enregistrement de la signature: " . $e->getMessage();
+    }
+}
+
+include('../includes/header.php');
+include('../includes/navbar.php');
+?>
+
+<div class="container-fluid">
+    <div class="row">
+        <?php include('includes/sidebar.php'); ?>
+
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Enregistrer votre signature</h1>
+                <a href="traiter_demande.php?id=<?php echo $demandeId; ?>" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Retour
+                </a>
+            </div>
+
+            <?php if(isset($error)): ?>
+            <div class="alert alert-danger"><?php echo $error; ?></div>
+            <?php endif; ?>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Signature de l'officier d'état civil</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-4">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-info-circle-fill fs-3"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">Information importante</h5>
+                                <p class="mb-0">Votre signature sera imprimée sur la Carte Nationale d'Identité en tant qu'officier d'état civil. Veuillez signer clairement dans la zone ci-dessous.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Demande #<?php echo $demandeId; ?></h5>
+                        <p>
+                            <strong>Nom:</strong> <?php echo htmlspecialchars($demande['Nom']); ?><br>
+                            <strong>Prénom:</strong> <?php echo htmlspecialchars($demande['Prenom']); ?><br>
+                            <strong>Référence:</strong> <?php echo htmlspecialchars($demande['NumeroReference']); ?>
+                        </p>
+                    </div>
+
+                    <form id="signature-form" method="POST">
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Votre signature</label>
+                            <div class="signature-container">
+                                <canvas id="signature-pad" class="signature-pad"></canvas>
+                            </div>
+                            <input type="hidden" name="signature" id="signature-data">
+                        </div>
+
+                        <div class="d-flex gap-2 mb-4">
+                            <button type="button" id="clear-signature" class="btn btn-outline-secondary">
+                                <i class="bi bi-eraser me-1"></i> Effacer
+                            </button>
+                            <button type="submit" id="save-signature" class="btn btn-primary">
+                                <i class="bi bi-save me-1"></i> Enregistrer ma signature
+                            </button>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <strong>Attention:</strong> Une fois enregistrée, votre signature ne pourra plus être modifiée.
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<style>
+.signature-container {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    background-color: #fff;
+    margin-bottom: 1rem;
+}
+
+#signature-pad {
+    width: 100%;
+    height: 200px;
+    background-color: #fff;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('signature-pad');
+    const signaturePad = new SignaturePad(canvas, {
+        backgroundColor: 'rgb(255, 255, 255)',
+        penColor: 'rgb(0, 0, 0)'
+    });
+
+    // Redimensionner le canvas pour qu'il remplisse son conteneur
+    function resizeCanvas() {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        canvas.getContext("2d").scale(ratio, ratio);
+        signaturePad.clear(); // Effacer le contenu après redimensionnement
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    // Effacer la signature
+    document.getElementById('clear-signature').addEventListener('click', function() {
+        signaturePad.clear();
+    });
+
+    // Soumettre le formulaire
+    document.getElementById('signature-form').addEventListener('submit', function(e) {
+        if (signaturePad.isEmpty()) {
+            e.preventDefault();
+            alert('Veuillez signer avant de soumettre.');
+            return false;
+        }
+
+        // Récupérer l'image de la signature en base64
+        const signatureData = signaturePad.toDataURL();
+        document.getElementById('signature-data').value = signatureData;
+    });
+});
+</script>
+
+<?php include('../includes/footer.php'); ?>
