@@ -1,0 +1,8 @@
+vendor
+node_modules
+.git
+.env
+tests
+phpunit.xml
+storage/*.key
+storage/framework/testing

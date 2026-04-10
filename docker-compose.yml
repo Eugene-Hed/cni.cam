@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # PHP Application
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: cni-backend
+    container_name: cni-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./backend:/var/www
+    environment:
+      - DB_HOST=db
+      - DB_DATABASE=${DB_DATABASE:-cni_cam}
+      - DB_USERNAME=cni
+      - DB_PASSWORD=cni
+    networks:
+      - cni-network
+    depends_on:
+      - db
+
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: cni-db
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-cni_cam}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_PASSWORD: cni
+      MYSQL_USER: cni
+    volumes:
+      - cni-db-data:/var/lib/mysql
+    networks:
+      - cni-network
+
+  # Next.js Frontend
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: cni-frontend
+    container_name: cni-web
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api
+    networks:
+      - cni-network
+    depends_on:
+      - app
+
+  # Nginx Web Server
+  nginx:
+    image: nginx:alpine
+    container_name: cni-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./backend:/var/www
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - cni-network
+    depends_on:
+      - app
+      - web
+
+networks:
+  cni-network:
+    driver: bridge
+
+volumes:
+  cni-db-data:
+    driver: local
