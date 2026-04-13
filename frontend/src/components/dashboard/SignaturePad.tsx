@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { Trash2, CheckCircle } from "lucide-react";
 
@@ -12,6 +12,16 @@ interface SignaturePadProps {
 export default function SignaturePad({ onSave, label }: SignaturePadProps) {
   const sigCanvas = useRef<SignatureCanvas>(null);
   const [isEmpty, setIsEmpty] = useState(true);
+
+  useEffect(() => {
+    // Suppress Canvas2D willReadFrequently Warning by pre-initializing context
+    if (sigCanvas.current) {
+      const nativeCanvas = sigCanvas.current.getCanvas();
+      if (nativeCanvas && typeof nativeCanvas.getContext === "function") {
+        nativeCanvas.getContext("2d", { willReadFrequently: true });
+      }
+    }
+  }, []);
 
   const clear = () => {
     sigCanvas.current?.clear();

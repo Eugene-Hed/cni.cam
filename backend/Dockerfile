@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     libmagickwand-dev
 
 # Install PHP extensions
-ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+RUN curl -sSLf --retry 3 --connect-timeout 5 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions -o /usr/local/bin/install-php-extensions
 RUN chmod +x /usr/local/bin/install-php-extensions && \
     install-php-extensions pdo_mysql mbstring exif pcntl bcmath gd intl zip pdo_sqlite imagick
 

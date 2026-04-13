@@ -19,7 +19,21 @@ class ChatbotController extends Controller
             'message' => 'required|string|max:1000',
         ]);
 
-        $response = $chatbotService->getResponse($request->message);
+        $userContext = null;
+        if ($user = $request->user()) {
+            $demandes = \App\Models\Demande::where('UtilisateurID', $user->UtilisateurID)
+                ->orderByDesc('DemandeID')
+                ->take(3)
+                ->get();
+            
+            $contextLines = ["L'utilisateur est {$user->Prenom} {$user->Nom} (Profession: {$user->Profession})."];
+            foreach ($demandes as $d) {
+                $contextLines[] = "- Demande #{$d->NumeroReference} ({$d->TypeDemande}): Statut '{$d->Statut}', créée le {$d->DateSoumission}.";
+            }
+            $userContext = implode("\n", $contextLines);
+        }
+
+        $response = $chatbotService->getResponse($request->message, $userContext);
 
         return response()->json([
             'success' => true,

@@ -146,4 +146,17 @@ class AdminController extends Controller
 
         return response()->json(['success' => true, 'data' => $journal]);
     }
+
+    /**
+     * GET /api/admin/demandes/{id}
+     */
+    public function detailDemande(int $id): JsonResponse
+    {
+        $demande = Demande::with([
+            'utilisateur', 'detailsCni', 'detailsNationalite', 'documents',
+            'paiements', 'historique.modifiePar', 'certificatNationalite', 'cni'
+        ])->findOrFail($id);
+
+        return response()->json(['success' => true, 'data' => $demande]);
+    }
 }

@@ -3,4 +3,4 @@ npm-debug.log
 .next
 .git
 .env
-.env.local
+# .env.local removed from ignore to allow build-time variable injection

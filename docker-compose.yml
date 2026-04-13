@@ -72,10 +72,39 @@ services:
       - app
       - web
 
+  # PhpMyAdmin - DB Management UI
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: cni-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      - PMA_HOST=db
+      - PMA_PORT=3306
+      - ARBITRARY_SETTINGS=1
+    networks:
+      - cni-network
+    depends_on:
+      - db
+    # Local AI Service (Ollama)
+    #ollama:
+    # image: ollama/ollama:latest
+    #container_name: cni-ollama
+    #restart: unless-stopped
+    #volumes:
+    #  - cni-ollama-data:/root/.ollama
+    #networks:
+    # - cni-network
+    #ports:
+    #  - "11434:11434"
+
 networks:
   cni-network:
     driver: bridge
 
 volumes:
   cni-db-data:
+    driver: local
+  cni-ollama-data:
     driver: local

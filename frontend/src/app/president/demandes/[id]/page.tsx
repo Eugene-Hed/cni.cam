@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import apiClient from "@/lib/api-client";
-import { motion } from "framer-motion";
+import SignatureModal from "@/components/ui/SignatureModal";
 
 export default function PresidentDetailDemandePage() {
   const { id } = useParams();
@@ -21,16 +21,18 @@ export default function PresidentDetailDemandePage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState("");
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
   const router = useRouter();
 
+  const fetchDetail = async () => {
+    try {
+        const resp = await apiClient.get(`/president/demandes/${id}`);
+        setDemande(resp.data.data);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
   useEffect(() => {
-    const fetchDetail = async () => {
-        try {
-            const resp = await apiClient.get(`/president/demandes/${id}`);
-            setDemande(resp.data.data);
-        } catch (err) { console.error(err); }
-        finally { setLoading(false); }
-    };
     fetchDetail();
   }, [id]);
 
@@ -39,9 +41,7 @@ export default function PresidentDetailDemandePage() {
     try {
         await apiClient.put(`/president/demandes/${id}/statut`, { statut: 'Approuvee' });
         setMessage("Dossier approuvé avec succès !");
-        // refresh
-        const resp = await apiClient.get(`/president/demandes/${id}`);
-        setDemande(resp.data.data);
+        fetchDetail();
     } catch (err) { console.error(err); }
     finally { setProcessing(false); }
   };
@@ -51,8 +51,7 @@ export default function PresidentDetailDemandePage() {
     try {
         await apiClient.post(`/president/demandes/${id}/generer-certificat`);
         setMessage("Certificat de Nationalité généré !");
-        const respDetail = await apiClient.get(`/president/demandes/${id}`);
-        setDemande(respDetail.data.data);
+        fetchDetail();
     } catch (err) { console.error(err); }
     finally { setProcessing(false); }
   };
@@ -81,10 +80,15 @@ export default function PresidentDetailDemandePage() {
                 )}
                 {demande.Statut === 'Approuvee' && (
                     <button className="btn btn-primary rounded-pill px-4" onClick={handleGenerateCert} disabled={processing}>
-                        <Printer size={18} className="me-2" /> Signer et Émettre le Certificat
+                        <Printer size={18} className="me-2" /> Émettre le Certificat
                     </button>
                 )}
-                {demande.Statut === 'Terminee' && demande.certificat_nationalite && (
+                {demande.Statut === 'Terminee' && demande.certificat_nationalite && !demande.certificat_nationalite.SignaturePresidentielle && (
+                    <button className="btn btn-warning rounded-pill px-4 fw-bold" onClick={() => setShowSignatureModal(true)} disabled={processing}>
+                        Signature requise
+                    </button>
+                )}
+                {demande.Statut === 'Terminee' && demande.certificat_nationalite && demande.certificat_nationalite.SignaturePresidentielle && (
                     <a href={`${process.env.NEXT_PUBLIC_API_URL}/storage/${demande.certificat_nationalite.CheminFichier}`} target="_blank" className="btn btn-dark rounded-pill px-4">
                         <FileText size={18} className="me-2" /> Ouvrir l'acte final
                     </a>
@@ -114,6 +118,26 @@ export default function PresidentDetailDemandePage() {
                         <div className="col-md-6">
                             <label className="small text-muted d-block">Motif de la demande</label>
                             <p className="fw-bold fs-5">{demande.details_nationalite?.Motif}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="row g-4 mb-4">
+                    <div className="col-md-12">
+                        <div className={`card border-0 shadow-sm rounded-4 p-4 h-100 ${demande.Statut === 'Terminee' && (!demande.certificat_nationalite || !demande.certificat_nationalite.SignaturePresidentielle) ? 'border-warning border border-2' : ''}`}>
+                            <h5 className="fw-bold mb-4">Sceau et Signature du Président</h5>
+                            <div className="bg-light p-4 rounded-4 text-center border d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 150 }}>
+                                {demande.certificat_nationalite?.SignaturePresidentielle ? (
+                                    <img src={`${process.env.NEXT_PUBLIC_API_URL}/storage/${demande.certificat_nationalite.CheminSignaturePresident}`} alt="Signature Président" style={{ maxHeight: 100 }} />
+                                ) : demande.Statut === 'Terminee' ? (
+                                    <>
+                                        <p className="text-muted small mb-3">Requis pour finaliser légalement l'acte.</p>
+                                        <button className="btn btn-primary btn-sm rounded-pill px-4" onClick={() => setShowSignatureModal(true)}>Signer Numériquement</button>
+                                    </>
+                                ) : (
+                                    <p className="text-muted small my-auto">Générez l'acte avant de le signer.</p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -153,6 +177,18 @@ export default function PresidentDetailDemandePage() {
                 </div>
             </div>
         </div>
+
+        <SignatureModal 
+            show={showSignatureModal} 
+            onClose={() => setShowSignatureModal(false)}
+            apiEndpoint={`/president/demandes/${id}/signature`}
+            title="Sceau et Signature"
+            description="Je certifie par la présente la validité de ce certificat de nationalité."
+            onSuccess={() => {
+                setShowSignatureModal(false);
+                fetchDetail();
+            }}
+        />
     </div>
   );
 }

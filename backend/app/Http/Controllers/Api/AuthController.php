@@ -72,11 +72,14 @@ class AuthController extends Controller
      */
     public function verifyOtp(VerifyOtpRequest $request): JsonResponse
     {
+        \Illuminate\Support\Facades\Log::debug("Tentative de vérification OTP reçue", $request->all());
+
         $user = $request->methode === 'email'
             ? Utilisateur::where('Email', $request->identifiant)->first()
             : Utilisateur::where('NumeroTelephone', $request->identifiant)->first();
 
         if (!$user) {
+            \Illuminate\Support\Facades\Log::warning("Vérification OTP : Utilisateur non trouvé pour {$request->identifiant}");
             return response()->json([
                 'success' => false,
                 'message' => 'Utilisateur introuvable.',
@@ -123,6 +126,23 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request): JsonResponse
     {
+        // Vérification combinaison nom/prénom similaire (logique héritée)
+        if (!$request->boolean('force_creation')) {
+            $similarAccount = Utilisateur::whereRaw('LOWER(Nom) = ? AND LOWER(Prenom) = ?', [
+                strtolower($request->nom),
+                strtolower($request->prenom)
+            ])->first();
+
+            if ($similarAccount) {
+                return response()->json([
+                    'success' => false,
+                    'is_similar' => true,
+                    'similar_email' => $this->masquerIdentifiant($similarAccount->Email, 'email'),
+                    'message' => 'Un compte avec ce nom et prénom existe déjà. S\'agit-il de vous ?',
+                ], 409);
+            }
+        }
+
         // Generate unique user code
         $codeUtilisateur = 'CIT-' . strtoupper(Str::random(8));
         while (Utilisateur::where('Codeutilisateur', $codeUtilisateur)->exists()) {

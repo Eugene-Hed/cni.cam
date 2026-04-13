@@ -18,4 +18,20 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// Interceptor for responses to handle global 401s
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+        if (window.location.pathname !== '/login') {
+            window.location.href = '/login?session_expired=1';
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default apiClient;

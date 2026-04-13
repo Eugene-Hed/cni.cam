@@ -34,8 +34,8 @@ export default function Footer() {
           <div className="col-lg-2 col-md-6">
             <h6 className="fw-bold mb-4">Support</h6>
             <ul className="list-unstyled small space-y-2">
-              <li><Link href="#" className="text-white-50 text-decoration-none hover-white">Aide / FAQ</Link></li>
-              <li><Link href="#" className="text-white-50 text-decoration-none hover-white">Contact</Link></li>
+              <li><Link href="/citoyen/assistant" className="text-white-50 text-decoration-none hover-white">Aide / FAQ (IA)</Link></li>
+              <li><Link href="/support" className="text-white-50 text-decoration-none hover-white">Contact</Link></li>
               <li><Link href="#" className="text-white-50 text-decoration-none hover-white">Centres d'enrôlement</Link></li>
             </ul>
           </div>

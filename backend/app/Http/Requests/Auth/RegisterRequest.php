@@ -44,6 +44,7 @@ class RegisterRequest extends FormRequest
             'departement_residence_id' => ['required', 'exists:departements,DepartementID'],
             'ville_residence_id' => ['required', 'exists:villes,VilleID'],
             'ethnie_id' => ['required', 'exists:ethnies,EthnieID'],
+            'force_creation' => ['sometimes', 'boolean'],
         ];
     }
 

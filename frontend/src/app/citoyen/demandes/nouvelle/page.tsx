@@ -13,6 +13,7 @@ import {
   Info
 } from "lucide-react";
 import SignaturePad from "@/components/dashboard/SignaturePad";
+import CameraCapture from "@/components/ui/CameraCapture";
 import apiClient from "@/lib/api-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -30,6 +31,7 @@ export default function NewDemandePage() {
     documents: {},
     signature: ""
   });
+  const [modePhoto, setModePhoto] = useState<"upload" | "camera">("upload");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -72,7 +74,7 @@ export default function NewDemandePage() {
             data.append(key, formData.documents[key]);
         });
 
-        await apiClient.post("/demandes", data, {
+        await apiClient.post("/citoyen/demandes", data, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         
@@ -185,16 +187,49 @@ export default function NewDemandePage() {
                                     </label>
                                 </div>
                                 <div className="document-upload p-3 border rounded-4 bg-light">
-                                    <label className="d-flex align-items-center gap-3 cursor-pointer">
-                                        <div className="bg-white p-2 rounded-circle shadow-sm text-primary">
-                                            <Upload size={20} />
-                                        </div>
-                                        <div className="flex-grow-1">
+                                    <div className="d-flex justify-content-between align-items-center mb-3">
+                                        <div>
                                             <p className="mb-0 fw-bold small">Photo d'Identité (Fond blanc)</p>
-                                            <p className="mb-0 text-muted smaller">{formData.documents.photo?.name || "Cliquer pour choisir un fichier"}</p>
                                         </div>
-                                        <input type="file" className="d-none" onChange={(e) => handleFileChange(e, 'photo')} />
-                                    </label>
+                                        <div className="btn-group">
+                                            <button 
+                                                type="button" 
+                                                className={`btn btn-sm ${modePhoto === 'upload' ? 'btn-primary' : 'btn-outline-primary'}`}
+                                                onClick={() => setModePhoto('upload')}
+                                            >
+                                                Fichier
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                className={`btn btn-sm ${modePhoto === 'camera' ? 'btn-primary' : 'btn-outline-primary'}`}
+                                                onClick={() => setModePhoto('camera')}
+                                            >
+                                                Caméra
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {modePhoto === 'upload' ? (
+                                        <label className="d-flex align-items-center gap-3 cursor-pointer p-3 bg-white border rounded">
+                                            <div className="bg-light p-2 rounded-circle shadow-sm text-primary">
+                                                <Upload size={20} />
+                                            </div>
+                                            <div className="flex-grow-1">
+                                                <p className="mb-0 text-muted smaller">{formData.documents.photo?.name || "Cliquer pour choisir un fichier (.jpg, .png)"}</p>
+                                            </div>
+                                            <input type="file" className="d-none" onChange={(e) => handleFileChange(e, 'photo')} accept="image/*" />
+                                        </label>
+                                    ) : (
+                                        <CameraCapture 
+                                            label="Prendre votre photo d'identité" 
+                                            onCapture={(file) => {
+                                                setFormData({
+                                                    ...formData,
+                                                    documents: { ...formData.documents, photo: file }
+                                                });
+                                            }} 
+                                        />
+                                    )}
                                 </div>
                             </div>
                         </motion.div>

@@ -20,29 +20,44 @@ export default function Sidebar() {
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (user.RoleId) setRole(user.RoleId);
+    if (user.role_id) setRole(user.role_id);
   }, []);
 
   const getMenuItems = () => {
+    if (role === 1) { // Admin
+      return [
+        { name: "Tableau de Bord", icon: LayoutDashboard, href: "/admin" },
+        { name: "Utilisateurs", icon: User, href: "/admin/utilisateurs" },
+        { name: "Toutes les Demandes", icon: FileText, href: "/admin/demandes" },
+        { name: "Journal d'Activités", icon: Bell, href: "/admin/journal" },
+      ];
+    }
     if (role === 3) { // Officier
       return [
         { name: "Tableau de Bord", icon: LayoutDashboard, href: "/officier" },
         { name: "Dossiers CNI", icon: FileText, href: "/officier/demandes" },
-        { name: "Centres", icon: HelpCircle, href: "/officier/centres" },
       ];
     }
     if (role === 4) { // President
       return [
         { name: "Tableau de Bord", icon: LayoutDashboard, href: "/president" },
-        { name: "Certificats", icon: FileText, href: "/president/certificats" },
+        { name: "Demandes Nationalité", icon: FileText, href: "/president/demandes" },
       ];
     }
     return [ // Citoyen (Default)
       { name: "Tableau de Bord", icon: LayoutDashboard, href: "/citoyen" },
       { name: "Mes Demandes", icon: FileText, href: "/citoyen/demandes" },
       { name: "Nouvelle Demande", icon: PlusCircle, href: "/citoyen/demandes/nouvelle" },
+      { name: "Assistant IA", icon: HelpCircle, href: "/citoyen/assistant" },
       { name: "Mes Documents", icon: QrCode, href: "/citoyen/documents" },
     ];
+  };
+
+  const getDashboardLink = () => {
+    if (role === 1) return "/admin";
+    if (role === 3) return "/officier";
+    if (role === 4) return "/president";
+    return "/citoyen";
   };
 
   const menuItems = getMenuItems();
@@ -50,7 +65,7 @@ export default function Sidebar() {
   return (
     <div className="d-flex flex-column bg-white h-100 border-end" style={{ width: 280 }}>
       <div className="p-4 border-bottom">
-        <Link href="/citoyen" className="text-decoration-none">
+        <Link href={getDashboardLink()} className="text-decoration-none">
           <span className="fw-bold fs-4 text-primary">CNI<span className="text-warning">.CAM</span></span>
         </Link>
       </div>
@@ -76,6 +91,13 @@ export default function Sidebar() {
       </div>
 
       <div className="p-3 border-top mt-auto">
+        <Link 
+            href="/profil" 
+            className={`nav-link d-flex align-items-center gap-3 py-3 px-4 rounded-3 transition-all mb-1 ${pathname === '/profil' ? "bg-light text-primary fw-bold" : "text-muted hover-bg-light"}`}
+        >
+          <User size={20} />
+          <span className="fw-medium">Mon Profil</span>
+        </Link>
         <Link 
             href="/logout" 
             className="nav-link d-flex align-items-center gap-3 py-3 px-4 text-danger rounded-3 transition-all hover-bg-danger-light"

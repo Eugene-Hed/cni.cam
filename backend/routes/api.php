@@ -158,6 +158,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
         // Toutes les demandes
         Route::get('/demandes', [AdminController::class, 'listeDemandes']);
+        Route::get('/demandes/{id}', [AdminController::class, 'detailDemande']);
 
         // Journal d'activités
         Route::get('/journal', [AdminController::class, 'journalActivites']);

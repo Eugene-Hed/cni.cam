@@ -20,8 +20,10 @@ export default function CitizenDashboard() {
   useEffect(() => {
     const fetchDemandes = async () => {
         try {
-            const resp = await apiClient.get("/demandes");
-            setDemandes(resp.data.data);
+            const resp = await apiClient.get("/citoyen/demandes");
+            // Correctly handle Laravel pagination
+            const data = resp.data.data?.data || resp.data.data || [];
+            setDemandes(data);
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
     };
@@ -142,7 +144,7 @@ export default function CitizenDashboard() {
                     <div className="position-relative z-2">
                         <h4 className="fw-bold mb-3">Besoin d'aide ?</h4>
                         <p className="small mb-4 text-white-90">Notre assistant IA est là pour vous guider dans vos démarches d'obtention de CNI.</p>
-                        <Link href="/citoyen/support" className="btn btn-light btn-sm rounded-pill px-4 py-2 fw-bold text-primary">
+                        <Link href="/citoyen/assistant" className="btn btn-light btn-sm rounded-pill px-4 py-2 fw-bold text-primary">
                             Discuter avec l'assistant
                         </Link>
                     </div>

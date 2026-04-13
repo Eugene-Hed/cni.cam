@@ -13,13 +13,15 @@ class OtpService
      */
     public function generate(Utilisateur $user): string
     {
-        $length = (int) config('app.otp_length', 6);
+        $length = (int) config('otp.length', 6);
         $code = str_pad((string) random_int(0, pow(10, $length) - 1), $length, '0', STR_PAD_LEFT);
 
         $user->update([
             'CodeOTP' => $code,
-            'ExpirationOTP' => now()->addMinutes((int) config('app.otp_expiry', 5)),
+            'ExpirationOTP' => now()->addMinutes((int) config('otp.expiry', 5)),
         ]);
+
+        Log::info("Code OTP généré pour {$user->Email}: {$code} (Expire à: {$user->ExpirationOTP})");
 
         return $code;
     }
@@ -30,15 +32,21 @@ class OtpService
     public function verify(Utilisateur $user, string $code): bool
     {
         if (!$user->CodeOTP || !$user->ExpirationOTP) {
+            Log::warning("Échec vérification OTP pour {$user->Email} : Aucun code en base.");
             return false;
         }
 
         if (now()->greaterThan($user->ExpirationOTP)) {
+            Log::warning("Échec vérification OTP pour {$user->Email} : Code expiré (Expire à {$user->ExpirationOTP}, actuel: " . now() . ")");
             $this->invalidate($user);
             return false;
         }
 
-        if ($user->CodeOTP !== $code) {
+        $inputCode = (string) trim($code);
+        $storedCode = (string) $user->CodeOTP;
+
+        if ($storedCode !== $inputCode) {
+            Log::warning("Échec vérification OTP pour {$user->Email} : Code incorrect. Attendu: '{$storedCode}', Reçu: '{$inputCode}'");
             return false;
         }
 

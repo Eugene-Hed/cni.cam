@@ -8,58 +8,57 @@ use Illuminate\Support\Facades\Log;
 class ChatbotService
 {
     private $apiKey;
-    private $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    private $apiUrl = 'http://ollama:11434/api/generate';
 
     public function __construct()
     {
-        $this->apiKey = config('services.gemini.key');
+        // API key no longer required for local Ollama
     }
 
     /**
-     * Send message to Google Gemini.
+     * Send message to Local Ollama (Phi-3).
      */
-    public function getResponse(string $message): string
+    public function getResponse(string $message, ?string $userContext = null): string
     {
-        if (!$this->apiKey) {
-            return $this->getRuleBasedFallback($message);
-        }
-
         try {
-            $context = "Tu es l'assistant virtuel de CNI.CAM, la plateforme numérique de gestion des Cartes Nationales d'Identité et des Certificats de Nationalité au Cameroun.
-            Tes objectifs :
-            1. Aider les citoyens dans leurs démarches (Inscription, Demande CNI, Demande Nationalité).
-            2. Expliquer les frais (CNI: 10 000 FCFA, Nationalité: 5 000 FCFA).
-            3. Guider sur les documents requis (Photo, Acte de naissance, etc.).
-            4. Répondre poliment et professionnellement en Français.
-            Si la question ne concerne pas CNI.CAM ou les documents d'identité au Cameroun, redirige poliment l'utilisateur vers les services concernés.";
+            // Load base knowledge from text file
+            $kbPath = base_path('ai_docs/knowledge_base.txt');
+            $knowledgeBase = file_exists($kbPath) ? file_get_contents($kbPath) : "";
+
+            $systemPrompt = "Tu es l'assistant virtuel expert de CNI.CAM au Cameroun.
+            Tes instructions :
+            1. RÉPONDS UNIQUEMENT EN TE BASANT SUR LA RÉGLEMENTATION CI-DESSOUS.
+            2. Sois précis et cite les articles si nécessaire.
+            3. Si une information n'est pas dans la base, dis poliment que tu ne sais pas.
+
+            RÉGLEMENTATION OFFICIELLE :
+            {$knowledgeBase}";
+
+            if ($userContext) {
+                $systemPrompt .= "\n\nCONTEXTE UTILISATEUR :\n" . $userContext;
+            }
 
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
-            ])->post($this->apiUrl . '?key=' . $this->apiKey, [
-                'contents' => [
-                    [
-                        'parts' => [
-                            ['text' => $context . "\n\nUtilisateur: " . $message]
-                        ]
-                    ]
-                ],
-                'generationConfig' => [
-                    'temperature' => 0.7,
-                    'maxOutputTokens' => 500,
+            ])->post($this->apiUrl, [
+                'model' => 'phi3',
+                'prompt' => $systemPrompt . "\n\nUtilisateur: " . $message . "\nAssistant:",
+                'stream' => false,
+                'options' => [
+                    'temperature' => 0.3, // Lower temp for more factual responses
+                    'num_predict' => 500,
                 ]
             ]);
 
             if ($response->successful()) {
-                $data = $response->json();
-                return $data['candidates'][0]['content']['parts'][0]['text'] ?? "Désolé, je ne peux pas répondre pour le moment.";
+                return $response->json()['response'] ?? "Désolé, je ne peux pas répondre pour le moment.";
             }
 
-            Log::error('Gemini API Error: ' . $response->body());
-            return $this->getRuleBasedFallback($message);
+            return $this->getRuleBasedFallback($message, $userContext);
 
         } catch (\Exception $e) {
-            Log::error('Chatbot Exception: ' . $e->getMessage());
-            return $this->getRuleBasedFallback($message);
+            Log::error('Local AI Error: ' . $e->getMessage());
+            return $this->getRuleBasedFallback($message, $userContext);
         }
     }
 

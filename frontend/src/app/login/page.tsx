@@ -37,10 +37,10 @@ export default function LoginPage() {
     try {
       const resp = await apiClient.post("/auth/verify-otp", { identifiant, methode, code: otp });
       localStorage.setItem("auth_token", resp.data.token);
-      localStorage.setItem("user", JSON.stringify(resp.data.utilisateur));
+      localStorage.setItem("user", JSON.stringify(resp.data.user));
       
       // Redirect based on role
-      const role = resp.data.utilisateur.RoleId;
+      const role = resp.data.user.role_id;
       if (role === 1) router.push("/admin");
       else if (role === 2) router.push("/citoyen");
       else if (role === 3) router.push("/officier");
